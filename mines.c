@@ -46,6 +46,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <str.h>
+#include <str_error.h>
 #include <ui/entry.h>
 #include <ui/fixed.h>
 #include <ui/menu.h>
@@ -57,19 +58,22 @@
 #include <ui/msgdialog.h>
 #include <ui/ui.h>
 #include <ui/window.h>
+#define NAME  "mines"
+#define NULL_DISPLAY  "0"
 // In future I have intention to put and some sound effect.. I will see.. So, get and This below.
+
 #include <hound/client.h>
+#include "sound.h"
+	const char *device = "default"; 
+	#define READ_SIZE   (64 * 1024)
+    #define STREAM_BUFFER_SIZE   (128 * 1024)
 
 extern void ui_msg_dialog_params_init(ui_msg_dialog_params_t *);
 extern errno_t ui_msg_dialog_create(ui_t *, ui_msg_dialog_params_t *, ui_msg_dialog_t **);
 extern void ui_msg_dialog_set_cb(ui_msg_dialog_t *, ui_msg_dialog_cb_t *, void *);
 extern void ui_msg_dialog_destroy(ui_msg_dialog_t *);
 
-#define NAME  "mines"
-#define NULL_DISPLAY  "0"
-
-
-/** Dimensions. Most of this should not be needed with auto layout */
+/** Dimensions. Do NOT change this */
 typedef struct {
 	gfx_rect_t menubar_rect;
 	gfx_rect_t entry_rect;
@@ -216,8 +220,66 @@ void minefield_generator( void )                            //Function that gene
     j = 0;
 }
 
-//END PARTS FOR CREATING MINE FIELD*******************************
+// END OF MINEFIELD PART *******************************************
 
+// AUDIO PART **********************************************************
+
+#define DEFAULT_FRAGMENTS 2
+
+
+
+/**
+ * Play audio file via hound server.
+ * @param filename File to play.
+ * @return Error code
+ */
+static errno_t zvuk(const char *filename, const char *target)
+{
+
+	FILE *source = fopen(filename, "rb");
+
+
+	/* Read and parse WAV header */
+	wave_header_t header;
+	size_t read = fread(&header, sizeof(header), 1, source);
+
+	pcm_format_t format;
+	const char *error;
+	errno_t ret = wav_parse_header(&header, NULL, NULL, &format.channels,
+	    &format.sampling_rate, &format.sample_format, &error);
+
+	/* Connect new playback context */
+	hound_context_t *hound = hound_context_create_playback(filename,
+	    format, STREAM_BUFFER_SIZE);
+
+	ret = hound_context_connect_target(hound, target);
+	if (ret != EOK) {
+		char **names = NULL;
+		size_t count = 0;
+		ret = hound_context_get_available_targets(hound, &names, &count);
+		hound_context_destroy(hound);
+		fclose(source);
+		return ret;
+	}
+
+	/* Read and play */
+	static char buffer[READ_SIZE];
+	while ((read = fread(buffer, sizeof(char), READ_SIZE, source)) > 0) {
+		ret = hound_write_main_stream(hound, buffer, read);
+		if (ret != EOK) {
+			printf("Neuspeo upis glavnog sadrzaja strima: %s\n",
+			    str_error(ret));
+			break;
+		}
+	}
+
+	/* Cleanup */
+	hound_context_destroy(hound);
+	fclose(source);
+	return ret;
+}
+// END OF AUDIO PART *************************************************************
+// GAME & BUTTONS part ***********************************************************
 static ui_pbutton_cb_t mine_pbutton_cb = {
 	.clicked = mine_pb_clicked,
 	.up = mine_pb_released
@@ -258,8 +320,7 @@ static void mine_file_exit(ui_menu_entry_t *mentry, void *arg)
 
 static void mine_pb_clicked(ui_pbutton_t *pbutton, void *arg)
 {
-// ui_entry_set_text(display, " ");
-//return;
+
 }
 
 static void mine_pb_released(ui_pbutton_t *pbutton, void *arg)
@@ -272,7 +333,9 @@ static void mine_pb_released(ui_pbutton_t *pbutton, void *arg)
 	const char *END = (const char *) "+";
 
     if ( (str_cmp(subexpr,O)==0) || (str_cmp(subexpr,BU)==0) || (str_cmp(subexpr,K)==0) )
-       check_minefield(pbutton,arg); 
+      {
+	
+	   check_minefield(pbutton,arg); }
 	else if (str_cmp(subexpr,END)==0) end_game();
 	else return;
 }
@@ -397,6 +460,7 @@ static void check_minefield(ui_pbutton_t *pbutton, void *arg)                   
 	const char *BU = (const char *) "*";
 	const char *Minus = (const char *) "-";
     const char *K = (const char *) "/";    
+	
      /// Yeah you WIN GAME                    
            if (prazno == 26) {   // Since we have 36 fields with 10 mines, 26 fields are empty
 	       // YOU WIN
@@ -435,7 +499,7 @@ static void check_minefield(ui_pbutton_t *pbutton, void *arg)                   
 		                     // command vrati_dugmad(), starts again beginner() and minefield_generator() for new game.
 	     prazno=0;
 		 ui_window_paint(window);
-			return;
+			
 	}
   if (str_cmp(subexpr,Minus)==0) 
     {       
@@ -445,12 +509,15 @@ static void check_minefield(ui_pbutton_t *pbutton, void *arg)                   
 			ui_entry_set_text(display, O);   // set text 
 			ui_entry_paint(display);
 			prazno++;     //Count mistakes.
-			return;
+				zvuk("klik.wav",device);   // click sound
+			
     }
      if (str_cmp(subexpr,BU)==0)
 	{     
-	      ui_entry_set_text(display, R);	// Print message on the Display " You find the mine :)"
+	   	
+		  ui_entry_set_text(display, R);	// Print message on the Display " You find the mine :)"
 		 skloni_dugmad();    // Move buttons from screen , Where? To Right, out from visible screen !
+		 	zvuk("end.wav",device);   // You fint MINE
            gfx_rect_t rect;   // get back RESTART and QUIT button
 	       rect.p0.x = 80;
 	       rect.p0.y = 130;
@@ -465,8 +532,8 @@ static void check_minefield(ui_pbutton_t *pbutton, void *arg)                   
             // re-paint window, to see these 2 buttons
 			ui_window_paint(window);
 			  ui_entry_paint(display); // Paint message
-			prazno=0;
-     		return;	
+			prazno=0;	
+		   return ;
     }  
 }
 
@@ -1231,5 +1298,6 @@ else {rc = mine_button_create(&mine, fixed, 5, 5, " ", &mine_pbutton_cb,(void *)
 	ui_run(ui);
 	ui_window_destroy(window);
 	ui_destroy(ui);
+
 	return 0;
 }
