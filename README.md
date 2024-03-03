@@ -1,4 +1,5 @@
-This is simple MineSweeper game, written for SrBin OS...
+This is UI simple MineSweeper game, written for SrBin OS...
+Now added and sound effects !
 
 
 ![Снимак екрана направљен дана 2024-03-01 21-58-16](https://github.com/zmmaj/Mines-for-Sr-Bin.OS/assets/8336904/e5f3ddcc-eeec-4ca8-a6e6-ae680b2cafe5)
