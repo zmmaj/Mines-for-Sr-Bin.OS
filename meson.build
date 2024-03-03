@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024 Zmaj from ZmajSoft
+# Copyright (c) 2020 Jiri Svoboda
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,10 +28,15 @@
 
 deps = [ 'ui' ,'drv', 'hound', 'pcm' ]
 src = files(
-	'../wavplay/dplay.c',
-	'../wavplay/drec.c',
 	'../wavplay/wave.c',
 	'mines.c',
 )
+
+if install_nonessential_data
+	# TODO: install this file somewhere sane
+	installed_data += { 'name': 'end.wav', 'dir': '/' }
+	installed_data += { 'name': 'klik.wav', 'dir': '/' }
+
+endif
 
 
